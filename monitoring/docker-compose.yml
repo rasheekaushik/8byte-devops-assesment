@@ -1,0 +1,96 @@
+services:
+  app:
+    build:
+      context: ../app
+    container_name: 8byte-app
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+  postgres:
+    image: postgres:16
+    container_name: 8byte-postgres
+    environment:
+      POSTGRES_USER: 8byte_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: 8byte
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - /var/log:/var/log:ro
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: 8byte-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://8byte_user:${POSTGRES_PASSWORD}@postgres:5432/8byte?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: 8byte-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: 8byte-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: 8byte-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki:/etc/loki:ro
+    command: -config.file=/etc/loki/loki-config.yml
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.5.0
+    container_name: 8byte-promtail
+    volumes:
+      - ./loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: 8byte-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+    restart: unless-stopped 
+
+volumes:
+  grafana-data:
+  postgres-data:
