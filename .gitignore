@@ -1,0 +1,30 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Terraform variables containing secrets
+terraform.tfvars
+
+# AWS credentials
+.aws/
+*.pem
+
+# Environment files
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+
+# Terraform plan files
+*.tfplan
+tfplan
